@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo python ./python-server.py
+sudo python ./python_server.py
