@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from _mysql import connection
 
 import getopt
 import socket
@@ -53,22 +52,34 @@ def child(server):
         except KeyboardInterrupt:
             return
 
+
+def print_help():
+    print "-r DOCUMENT_DIR  set relative document directory"
+    print "-c CPU_COUNT     set CPU count"
+    print "-l               get log output"
+    print "-h               show help"
+
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "r:c:l")
+        opts, args = getopt.getopt(sys.argv[1:], "r:c:lh")
     except getopt.GetoptError:
-        print "-r DOCUMENT_DIR - set document directory"
-        print "-c CPU_COUNT - set CPU count"
-        print "-l - get log output"
+        print_help()
         sys.exit(1)
 
     for opt, arg in opts:
         if opt == '-r':
             document_dir = arg
         elif opt == '-c':
-            cpu_count = arg
+            try:
+                cpu_count = int(arg)
+            except ValueError:
+                print_help()
+                sys.exit(2)
         elif opt == '-l':
             log_flag = True
+        elif opt == '-h':
+            print_help()
+            sys.exit(0)
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -76,20 +87,11 @@ if __name__ == '__main__':
     server_socket.listen(socket.SOMAXCONN)
 
     if log_flag:
-        print('Server started on %s:%s' % (HOST, str(PORT)))
-
-    processes = {}
+        print 'Server started on %s:%s' % (HOST, str(PORT))
+        print 'Uses %s CPUs' % cpu_count
 
     for i in range(cpu_count*2):
-        proc = Process(target=child, args=(server_socket,), name="Worker " + str(i))
-        processes[i] = proc
-        proc.daemon = True
+        proc = Process(target=child, args=(server_socket,), name="Worker " + str(i+1))
         proc.start()
-
-        try:
-            proc.join()
-        except KeyboardInterrupt:
-            print "Server shutdown"
-            for p in processes:
-                p.close()
-            sys.exit(0)
+        if log_flag:
+            print "Process %s started, pid %s" % (i+1, proc.pid)
