@@ -5,6 +5,8 @@ import getopt
 import socket
 import sys
 import multiprocessing
+import select
+from _socket import timeout, error
 from multiprocessing import Process
 from httpresponse import HttpResponse
 
@@ -12,6 +14,7 @@ HOST = '127.0.0.1'
 PORT = 80
 EOL1 = '\n\n'
 EOL2 = '\n\r\n'
+TIMEOUT = 1.0
 
 log_flag = False
 cpu_count = multiprocessing.cpu_count()
@@ -23,6 +26,10 @@ def child(server):
         try:
             connection_socket, address = server.accept()
             data = ''
+            ready = select.select([connection_socket], [], [], TIMEOUT)
+            if not ready[0]:
+                continue
+
             while EOL1 not in data and EOL2 not in data:
                 data_buffer = connection_socket.recv(1024)
                 if not data_buffer:
@@ -51,6 +58,12 @@ def child(server):
             connection_socket.close()
         except KeyboardInterrupt:
             return
+        except timeout:
+            print "timeout exception"
+            continue
+        except error:
+            print "error exception"
+            continue
 
 
 def print_help():
@@ -82,6 +95,7 @@ if __name__ == '__main__':
             sys.exit(0)
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.settimeout(TIMEOUT)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_socket.bind((HOST, PORT))
     server_socket.listen(socket.SOMAXCONN)
@@ -90,7 +104,7 @@ if __name__ == '__main__':
         print 'Server started on %s:%s' % (HOST, str(PORT))
         print 'Uses %s CPUs' % cpu_count
 
-    for i in range(cpu_count*2):
+    for i in range(cpu_count):
         proc = Process(target=child, args=(server_socket,), name="Worker " + str(i+1))
         proc.start()
         if log_flag:
