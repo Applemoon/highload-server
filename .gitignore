@@ -1,3 +1,5 @@
 .idea
 *.pyc
 httptest.py
+DOCUMENT_ROOT
+!DOCUMENT_ROOT/index.html
